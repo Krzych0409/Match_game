@@ -4,25 +4,35 @@ from random import shuffle
 import json
 import os
 from random import randrange
-
+from do_image import find_all_image, resize_images
+from tkinter import messagebox
+from tkinter import filedialog as fd
 
 class Game:
     """Whole game run in this class"""
     def __init__(self):
         self.levels = ('3', '6', '10', '15', '28')
+        self.default_img_dir_name = 'flags'
+        self.img_dir_name = self.default_img_dir_name
 
     def new_game(self, pairs=3):
         """Creating window of game and selection of images."""
         self.number_of_pairs_str = str(pairs)
+        self.card_click_history = []
+        self.number_of_moves = 0
 
         # If exist last game, delete old game
         try: self.game_destroy()
         except: pass
 
-        self.frame = tk.Frame(root)
-        self.frame.pack()
-        root.title(f'Match - {self.number_of_pairs_str} pairs')
+        self.do_menu()
+        self.get_ranking_json()
+        self.create_sheet_and_frames()
+        self.set_images()
 
+        self.last_game_pairs = pairs
+
+    def create_sheet_and_frames(self):
         # Creating a sheet of cards. Rows and columns.
         if self.number_of_pairs_str == '3':
             self.number_of_row = 2
@@ -40,13 +50,61 @@ class Game:
             self.number_of_row = 7
             self.number_of_column = 8
 
-        self.card_click_history = []
+        # Do main frame
+        self.frame = tk.Frame(root)
+        self.frame.pack()
+        root.title(f'Match game - {self.number_of_pairs_str} pairs')
+
+        # Do bottom frame (display the number of moves and the record)
+        self.frame_player = tk.Frame(root)
+        self.label_moves = tk.Label(self.frame_player, text=f'Moves: {self.number_of_moves}', font=('calibre', 14, 'normal'))
+        self.label_moves.pack(side=tk.TOP)
+
+        try:
+            self.label_champion = tk.Label(self.frame_player, font=('calibre', 14, 'normal'),
+                                           text=f'Champion: {self.ranking[self.number_of_pairs_str]["name"][0]} --> {self.ranking[self.number_of_pairs_str]["moves"][0]}')
+        except IndexError:
+            self.label_champion = tk.Label(self.frame_player, font=('calibre', 14, 'normal'),
+                                           text=f'Champion: ---')
+        self.label_champion.pack(side=tk.BOTTOM)
+        self.frame_player.pack()
+
+    def do_menu(self):
+        # Making menu and add to the 'root'
+        self.menu = tk.Menu()
+        self.filemenu= tk.Menu(self.menu, tearoff=0)
+        self.filemenu.add_cascade(label='Change images', command=self.change_images_directory)
+        self.filemenu.add_cascade(label='Add your images', command=self.add_my_image)
+        self.gamemenu = tk.Menu(self.menu, tearoff=0)
+        self.gamemenu.add_command(label='3 pars', command=lambda: self.new_game(3))
+        self.gamemenu.add_command(label='6 pars', command=lambda: self.new_game(6))
+        self.gamemenu.add_command(label='10 pars', command=lambda: self.new_game(10))
+        self.gamemenu.add_command(label='15 pars', command=lambda: self.new_game(15))
+        self.gamemenu.add_command(label='28 pars', command=lambda: self.new_game(28))
+
+
+        self.menu.add_cascade(label='File', menu=self.filemenu)
+        self.menu.add_cascade(label='New game', menu=self.gamemenu)
+        self.menu.add_cascade(label='Ranking', command=self.show_ranking)
+
+        root.config(menu=self.menu)
+
+    def set_images(self):
         self.image_list = []
-        self.all_images = list(range(1, 31))
-        self.number_of_moves = 0
+        self.all_images = find_all_image(rf'images\{self.img_dir_name}')
+        # Delete default image form list
+        try:
+            self.all_images.remove('0.png')
+        except ValueError:
+            messagebox.showerror('warning', f'There is no default photo: "0.png" in the selected catalog: "{self.img_dir_name}"')
+            self.change_images_directory()
+
+        if len(self.all_images) < int(self.number_of_pairs_str):
+            messagebox.showwarning('warning', f'Not enough pictures in the selected catalog: "{self.img_dir_name}"\nYou need {self.number_of_pairs_str} pictures.\n'
+                                              f'Add more pictures or change the directory.',)
 
         # Selecting the images.
-        for i in range(pairs):
+        for i in range(int(self.number_of_pairs_str)):
             self.image_list.append(self.all_images.pop(randrange(len(self.all_images))))
         # All cards in list * 2
         self.image_list *= 2
@@ -62,36 +120,37 @@ class Game:
             for column in range(self.number_of_column):
                 self.fields[row].append(Field(self.image_list.pop(0), row, column, self))
 
-        # Making menu and add to the 'root'
-        self.menu = tk.Menu()
-        self.filemenu = tk.Menu(self.menu, tearoff=0)
-        self.filemenu.add_command(label='3 pars', command=lambda: self.new_game(3))
-        self.filemenu.add_command(label='6 pars', command=lambda: self.new_game(6))
-        self.filemenu.add_command(label='10 pars', command=lambda: self.new_game(10))
-        self.filemenu.add_command(label='15 pars', command=lambda: self.new_game(15))
-        self.filemenu.add_command(label='28 pars', command=lambda: self.new_game(28))
+    def change_images_directory(self):
+        # Do directory list
+        self.dir_list = next(os.walk(r'.\images'))[1]
 
-        self.menu.add_cascade(label='New game', menu=self.filemenu)
-        self.menu.add_cascade(label='Ranking', command=self.show_ranking)
-        root.config(menu=self.menu)
+        self.window_change_dir_img = tk.Toplevel(root)
+        self.window_change_dir_img.title('Select images directory')
+        self.label_change_dir_img = tk.Label(self.window_change_dir_img, font=('calibre', 14, 'normal'), padx=20, pady=15,
+                                             text='Select a folder with images from the list:')
+        self.label_change_dir_img.pack()
 
-        self.get_ranking_json()
-        # Making bottom frame (display the number of moves and the record)
-        self.frame_player = tk.Frame(root)
-        self.label_moves = tk.Label(self.frame_player, text=f'Moves: {self.number_of_moves}', font=('calibre', 14, 'normal'))
-        self.label_moves.pack(side=tk.TOP)
-        try:
-            self.label_champion = tk.Label(self.frame_player, text=f'Champion: {self.ranking[self.number_of_pairs_str]["name"][0]} --> {self.ranking[self.number_of_pairs_str]["moves"][0]}',
-                                           font=('calibre', 14, 'normal'))
-        except IndexError:
-            self.label_champion = tk.Label(self.frame_player, text=f'Champion: ---',
-                                           font=('calibre', 14, 'normal'))
-        self.label_champion.pack(side=tk.BOTTOM)
-        self.frame_player.pack()
+        self.var = tk.StringVar(value='0')
+        for dir in self.dir_list:
+            tk.Radiobutton(self.window_change_dir_img, variable=self.var, text=dir, value=dir, font=('calibre', 12, 'normal')).pack()
+
+        self.button_change_dir_img_OK = tk.Button(self.window_change_dir_img, text='OK', padx=10, pady=5,
+                                                  command=lambda: self.set_img_dir_name(self.var.get()))
+        self.button_change_dir_img_OK.pack()
+
+    def set_img_dir_name(self, dir):
+        print(f'dir = {dir}')
+        if dir != '0':
+            self.img_dir_name = dir
+        else:
+            self.img_dir_name = self.default_img_dir_name
+
+        self.window_change_dir_img.destroy()
+        self.new_game(self.last_game_pairs)
 
     def check_pair(self, click_card):
         """Checking for a match. Object of field is argument."""
-        # Adding field to the 'self.card_click_history'
+        # Add field to the 'self.card_click_history'
         if len(self.card_click_history) == 0:
             self.card_click_history.append(click_card)
 
@@ -161,7 +220,7 @@ class Game:
             self.file.close()
 
     def save_sore(self, event=0):
-        """Adding the player's score to the ranking and sorting the ranking by the number of moves."""
+        """Add the player's score to the ranking and sorting the ranking by the number of moves."""
         self.button_save['state'] = tk.DISABLED
         self.name = self.entry_name.get()
 
@@ -179,8 +238,9 @@ class Game:
         json.dump(self.ranking, self.file)
         self.file.close()
 
-        # Close top window
+        # Close top window and start new game
         self.window_win.destroy()
+        self.new_game(self.last_game_pairs)
 
     def show_ranking(self):
         """Display ranking in top window"""
@@ -209,14 +269,48 @@ class Game:
         self.frame.destroy()
         self.frame_player.destroy()
 
+    def add_my_image(self):
+        self.my_dir = fd.askdirectory(title="Select folder with images").split('/')[-1]
+        print(self.my_dir)
+
+        self.all_images = find_all_image(self.my_dir)
+
+        # Do new window
+        self.window_get_name_new_dir = tk.Toplevel(root)
+        self.window_get_name_new_dir.title('Enter the name of the new directory')
+
+        # Get name a new directory of images
+        tk.Label(self.window_get_name_new_dir, font=('calibre', 13, 'normal'), padx=15,
+                 text='Enter the name of the new directory:').pack()
+        self.entry_name_new_dir = tk.Entry(self.window_get_name_new_dir, font=('calibre', 14, 'normal'), width=15)
+        self.entry_name_new_dir.pack()
+
+        # Get length in px longer side of the image after resizing
+        tk.Label(self.window_get_name_new_dir, font=('calibre', 13, 'normal'), padx=15, pady=10,
+                 text='Length in px longer side of the image after resizing:').pack()
+        self.entry_max_px = tk.Entry(self.window_get_name_new_dir, font=('calibre', 14, 'normal'), width=15)
+        self.entry_max_px.pack()
+
+        # Function inside method
+        def resize_process(event=0):
+            resize_images(self.all_images, self.my_dir, self.entry_name_new_dir.get(), int(self.entry_max_px.get()))
+            self.window_get_name_new_dir.destroy()
+
+        # Go to resize after click button "Resize images"
+        self.button_do_resize = tk.Button(self.window_get_name_new_dir, text='Resize images', pady=5,
+                                          command=resize_process)
+        self.button_do_resize.pack()
+        self.window_get_name_new_dir.bind('<Return>', resize_process)
+
+
 
 class Field:
     """The class create a buttons of field and set button activity"""
     def __init__(self, name, row, column, game):
         self.frame = game.frame
         self.name = name
-        self.image = tk.PhotoImage(file=rf'images\{self.name}.png')
-        self.default_image = tk.PhotoImage(file=r'images\0.png')
+        self.image = tk.PhotoImage(file=rf'images\{game.img_dir_name}\{self.name}')
+        self.default_image = tk.PhotoImage(file=rf'images\{game.img_dir_name}\0.png')
         self.row = row
         self.column = column
         self.field_activity = True
@@ -241,11 +335,15 @@ class Field:
             game.check_pair(self)
 
 
-root = tk.Tk()
-# Blocking the resizing of window
-root.resizable(False, False)
 
-game = Game()
-game.new_game()
+if __name__ == "__main__":
+    root = tk.Tk()
+    # Block the resize of window
+    root.resizable(False, False)
+    # Set minimal size
+    root.minsize(300, 200)
 
-root.mainloop()
+    game = Game()
+    game.new_game()
+
+    root.mainloop()
