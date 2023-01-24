@@ -8,6 +8,7 @@ from do_image import find_all_image, resize_images
 from tkinter import messagebox
 from tkinter import filedialog as fd
 
+
 class Game:
     """Whole game run in this class"""
     def __init__(self):
@@ -272,6 +273,8 @@ class Game:
     def add_my_image(self):
         self.my_dir = fd.askdirectory(title="Select folder with images").split('/')[-1]
         print(self.my_dir)
+        if not self.my_dir:
+            return 0
 
         self.all_images = find_all_image(self.my_dir)
 
