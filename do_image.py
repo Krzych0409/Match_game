@@ -17,12 +17,12 @@ def find_all_image(dir_name):
 
     return list_img_text
 
-def resize_images(list_img_text, dir_name, new_dir_name, max_px: int):
+def resize_images(list_img_text, dir_path, new_dir_name, max_px: int):
     max_length_vertical = 0
     max_length_horizontal = 0
     for img_text in list_img_text:
         # Load image with orientation
-        image = ImageOps.exif_transpose(Image.open(rf'./{dir_name}/{img_text}'))
+        image = ImageOps.exif_transpose(Image.open(rf'{dir_path}/{img_text}'))
 
         width_img, height_img = image.size
 
@@ -55,13 +55,12 @@ def resize_images(list_img_text, dir_name, new_dir_name, max_px: int):
             img_resize = image.resize((width_img_resize, height_img_resize))
             img_resize.save(rf'.\images\{new_dir_name}\{img_text.split(".")[0]}.png')
 
+    # Resize default image
     img_default = Image.open(rf'.\images\0.png').resize((max_length_horizontal, max_length_vertical))
     img_default.save(rf'.\images\{new_dir_name}\0.png')
 
+
+
 if __name__ == "__main__":
-    max_px = 400
-    dir_img = 'my_img'
-    new_dir_name = 'max400'
-    list_img_text = find_all_image(dir_img)
-    list_img_obj = resize_images(list_img_text, dir_img, new_dir_name, max_px)
+    pass
 

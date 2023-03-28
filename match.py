@@ -1,4 +1,3 @@
-"""The game requires the 'tk' library to be installed"""
 import tkinter as tk
 from random import shuffle
 import json
@@ -103,23 +102,23 @@ class Game:
         if len(self.all_images) < int(self.number_of_pairs_str):
             messagebox.showwarning('warning', f'Not enough pictures in the selected catalog: "{self.img_dir_name}"\nYou need {self.number_of_pairs_str} pictures.\n'
                                               f'Add more pictures or change the directory.',)
+        else:
+            # Selecting the images.
+            for i in range(int(self.number_of_pairs_str)):
+                self.image_list.append(self.all_images.pop(randrange(len(self.all_images))))
+            # All cards in list * 2
+            self.image_list *= 2
 
-        # Selecting the images.
-        for i in range(int(self.number_of_pairs_str)):
-            self.image_list.append(self.all_images.pop(randrange(len(self.all_images))))
-        # All cards in list * 2
-        self.image_list *= 2
+            # Mixed images in list
+            shuffle(self.image_list)
 
-        # Mixed images in list
-        shuffle(self.image_list)
+            # Making a list with [] * 'self.number_of_row'
+            self.fields = [[] for i in range(self.number_of_row)]
 
-        # Making a list with [] * 'self.number_of_row'
-        self.fields = [[] for i in range(self.number_of_row)]
-
-        # Making objects class 'Field' and add to the list 'self.fields'
-        for row in range(self.number_of_row):
-            for column in range(self.number_of_column):
-                self.fields[row].append(Field(self.image_list.pop(0), row, column, self))
+            # Making objects class 'Field' and add to the list 'self.fields'
+            for row in range(self.number_of_row):
+                for column in range(self.number_of_column):
+                    self.fields[row].append(Field(self.image_list.pop(0), row, column, self))
 
     def change_images_directory(self):
         # Do directory list
@@ -140,7 +139,6 @@ class Game:
         self.button_change_dir_img_OK.pack()
 
     def set_img_dir_name(self, dir):
-        print(f'dir = {dir}')
         if dir != '0':
             self.img_dir_name = dir
         else:
@@ -271,18 +269,17 @@ class Game:
         self.frame_player.destroy()
 
     def add_my_image(self):
-        self.my_dir = fd.askdirectory(title="Select folder with images").split('/')[-1]
-        print(self.my_dir)
+        self.my_dir_path = fd.askdirectory(title="Select folder with images")
+        self.my_dir = self.my_dir_path.split('/')[-1]
         if not self.my_dir:
             return 0
-
-        self.all_images = find_all_image(self.my_dir)
+        self.all_images = find_all_image(self.my_dir_path)
 
         # Do new window
         self.window_get_name_new_dir = tk.Toplevel(root)
         self.window_get_name_new_dir.title('Enter the name of the new directory')
 
-        # Get name a new directory of images
+        # Get new directory name of images
         tk.Label(self.window_get_name_new_dir, font=('calibre', 13, 'normal'), padx=15,
                  text='Enter the name of the new directory:').pack()
         self.entry_name_new_dir = tk.Entry(self.window_get_name_new_dir, font=('calibre', 14, 'normal'), width=15)
@@ -296,7 +293,7 @@ class Game:
 
         # Function inside method
         def resize_process(event=0):
-            resize_images(self.all_images, self.my_dir, self.entry_name_new_dir.get(), int(self.entry_max_px.get()))
+            resize_images(self.all_images, self.my_dir_path, self.entry_name_new_dir.get(), int(self.entry_max_px.get()))
             self.window_get_name_new_dir.destroy()
 
         # Go to resize after click button "Resize images"
@@ -304,7 +301,6 @@ class Game:
                                           command=resize_process)
         self.button_do_resize.pack()
         self.window_get_name_new_dir.bind('<Return>', resize_process)
-
 
 
 class Field:
